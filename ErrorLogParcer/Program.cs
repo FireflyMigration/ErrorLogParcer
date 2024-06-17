@@ -24,7 +24,7 @@ namespace ErrorLogParcer
                 using (StreamWriter writer = new StreamWriter(outputFileName))
                 {
 
-                    writer.WriteLine("Date,Day of Week,Time,ABIMM Version,Classification,Error,InnerError,ISO Date,Line");
+                    writer.WriteLine("Date,Day of Week,Time,ABIMM Version,Classification,Error,stack,InnerError,innerStack,ISO Date,Line");
 
                     string line;
                     string lastErrorDate = "";
@@ -32,13 +32,15 @@ namespace ErrorLogParcer
                     string lastVersion = ""; // Temporary storage for version information
 
                     string innerError = "";
+                    string firstStackLine = "";
+                    string firstInnerStackLine = "";
 
                     int lineNumber = 0;
                     void writeCsv()
                     {
                         var classification = ClassifyError(lastErrorMessage, innerError); // Determine classification
                         DateTime parsedDate = DateTime.ParseExact(lastErrorDate, "M/d/yyyy h:mm:ss tt", System.Globalization.CultureInfo.InvariantCulture);
-                        writer.WriteLine($"{parsedDate.ToString("yyyy-MM-dd")},{parsedDate.DayOfWeek.ToString()},{GetHourPlus15MinuteInterval(parsedDate)},{EscapeForCsv(lastVersion)},{EscapeForCsv(classification)},{EscapeForCsv(lastErrorMessage)},{EscapeForCsv(innerError)},{parsedDate.ToString("o")},{lineNumber}");
+                        writer.WriteLine($"{parsedDate.ToString("yyyy-MM-dd")},{parsedDate.DayOfWeek.ToString()},{GetHourPlus15MinuteInterval(parsedDate)},{EscapeForCsv(lastVersion)},{EscapeForCsv(classification)},{EscapeForCsv(lastErrorMessage)},{EscapeForCsv(firstStackLine)},{EscapeForCsv(innerError)},{EscapeForCsv(firstInnerStackLine)},{parsedDate.ToString("o")},{lineNumber}");
                     }
 
                     while ((line = reader.ReadLine()) != null)
@@ -59,6 +61,8 @@ namespace ErrorLogParcer
                             // Reset version for the new error block
                             lastVersion = "";
                             innerError = "";
+                            firstStackLine = "";
+                            firstInnerStackLine = "";
                         }
                         else if (innerError == "" && line.Contains("Inner Exception:"))
                         {
@@ -83,6 +87,23 @@ namespace ErrorLogParcer
                         else if (line.StartsWith("ABIMM_SM Version:"))
                         {
                             lastVersion = line.Substring("ABIMM_SM Version:".Length).Trim();
+                        }
+                        else if (line.StartsWith("   at "))
+                        {
+                            if (string.IsNullOrEmpty(innerError))
+                            {
+                                if (string.IsNullOrEmpty(firstStackLine))
+                                {
+                                    firstStackLine = line.Substring(6);
+                                }
+                            }
+                            else
+                            {
+                                if (string.IsNullOrEmpty(firstInnerStackLine))
+                                {
+                                    firstInnerStackLine = line.Substring(6);
+                                }
+                            }
                         }
                     }
 
